@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>LeroLero MVC</title>
+		<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+	</head>
+	<body>
+		<div id="app">
+			<div v-for="wheel in wheels">
+				<button @click="stop(wheel)" :disabled="!wheel.intervalId">
+					{{ wheel.wordDisplay }}
+				</button>
+			</div>
+			<button @click="spin(wheels)" v-if="noneSpinning">START</button>
+		</div>
+	</body>
+	<style>
+	button {
+		width:200px;
+	}
+	</style>
+	<script>
+	const { createApp, ref, computed } = Vue
+
+	createApp({
+		setup() {
+			const fetchWords = (wheel, amount) =>
+				fetch('http://localhost:8080/' + wheel.name + '?size=' + amount)
+					.then(res => res.ok ? res : undefined)
+					.then(res => res.json())
+					.then(list => wheel.wordBuffer = wheel.wordBuffer.concat(list))
+					.catch(e => console.log('Error fetching ' + wheel.name))
+
+			const updateWord = (wheel) => () => {
+				const THRESHOLD = 5
+				const FETCH_AMOUNT = 20
+				if (wheel.wordBuffer.length <= THRESHOLD) fetchWords(wheel, FETCH_AMOUNT)
+				wheel.wordDisplay = wheel.wordBuffer.shift() || '...'
+				console.log(wheel.name + ' left: ' + wheel.wordBuffer.length)
+			}
+
+			const spin = (wheels) => {
+				const INTERVAL_MS = 200
+				wheels.forEach(w => w.intervalId = setInterval(updateWord(w), INTERVAL_MS))
+			}
+
+			const stop = (wheel) => {
+				clearInterval(wheel.intervalId)
+				wheel.intervalId = null
+			}
+
+			const wheels = ref([
+				{
+					name: 'adverbs',
+					wordBuffer: [],
+					wordDisplay: '...',
+					intervalId: null,
+				},
+				{
+					name: 'verbs',
+					wordBuffer: [],
+					wordDisplay: '...',
+					intervalId: null,
+				},
+				{
+					name: 'nouns',
+					wordBuffer: [],
+					wordDisplay: '...',
+					intervalId: null,
+				},
+			])
+
+			const noneSpinning = computed(() => {
+				return wheels.value.filter(w => w.intervalId != null).length === 0
+			})
+
+			return { wheels, spin, stop, noneSpinning }
+		}
+	}).mount('#app')
+	</script>
+
+</html>
